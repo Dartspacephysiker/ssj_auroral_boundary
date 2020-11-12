@@ -28,7 +28,7 @@ def prepare_output_directories(data_rootdir,out_subdir):
             'csv': os.path.join(data_rootdir,out_subdir,'csv')
             }
 
-    for dirkey,directory in dirs.iteritems():
+    for dirkey,directory in dirs.items():
         if not os.path.exists(directory):
             os.makedirs(directory)
 
@@ -68,7 +68,7 @@ if __name__=='__main__':
                             default=False)
     parser.add_argument("--datarootdir",
                             help="Root directory for CDF data, plots and CSVs",
-                            default='/tmp/ssj_auroral_boundary')
+                            default='/SPENCEdata/Research/ssj_auroral_boundary/output')
     parser.add_argument("--test",
                             action='store_true',
                             help="Test using the included CDF",
@@ -136,8 +136,8 @@ if __name__=='__main__':
         cdffn = os.path.join(test_data_dir,test_cdffn)
         shutil.copy(cdffn,dirs['data'])
 
-        log.warn('--test command line argument overrides '
-                 'satellite, year, month, day settings')
+        log.warning('--test command line argument overrides '
+                    'satellite, year, month, day settings')
     else:
 
         #Try to download CDF if can't find it in the data directory

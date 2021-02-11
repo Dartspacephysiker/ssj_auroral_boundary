@@ -1,9 +1,10 @@
 # Copyright 2018 SEDA Group at CU Boulder
 # Created by:
 # Liam Kilcommons
-# Space Environment Data Analysis Group (SEDA)
-# Colorado Center for Astrodynamics Research (CCAR)
-# University of Colorado, Boulder (CU Boulder)
+# Stolen by:
+# Birkeland Centre for Space Science (2021)
+
+# 2021 The Birkeland Centre for Space Science version ...
 """
 ssj_auroral_boundary
 --------------------

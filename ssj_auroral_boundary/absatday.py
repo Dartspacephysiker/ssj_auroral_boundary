@@ -341,7 +341,7 @@ class absatday_poes(object):
                                           np.float64(self.ds['day'].values),
                                           np.float64(self.ds['msec'].values))])
 
-        self.uts = special_datetime.datetimearr2sod(self.time)
+        self.uts = special_datetime.datetimearr2sod(self.time)  # second of day
         self.hod = self.uts/3600.
 
         # self.diff_flux = self.cdf['ELE_DIFF_ENERGY_FLUX'][:]
@@ -349,12 +349,16 @@ class absatday_poes(object):
         # self.total_flux = self.cdf['ELE_TOTAL_ENERGY_FLUX'][:]
 
         self.total_flux = self.ds['ted_ele_tel0_hi_eflux'].values
+        # self.total_flux[self.total_flux < 0] = np.nan
         # self.diff_flux_std = self.ds['ted_ele_tel0_hi_eflux_error'].values 
 
-        #The uncertainty in the NC is relative
-        # ted_ele_tel0_hi_eflux_error : 'TED electron (1-20 keV) 0 deg telescope energy flux percent error'
+        # flux uncertainty
+        #The uncertainty in the NC is relative, given as percentage
         # self.total_flux_std = self.cdf['ELE_TOTAL_ENERGY_FLUX_STD'][:]
-        self.total_flux_std = self.ds['ted_ele_tel0_hi_eflux_error'].values
+
+        # ted_ele_tel0_hi_eflux_error : 'TED electron (1-20 keV) 0 deg telescope energy flux percent error'
+        self.total_flux_std = np.float64(self.ds['ted_ele_tel0_hi_eflux_error'].values)/100.  
+
 
         # Apex coordinates
         apexreftime = self.time[0]
@@ -452,8 +456,9 @@ class absatday_poes(object):
     def __getitem__(self,var):
         if hasattr(self,var):
             return getattr(self,var)
-        elif var in self.cdf:
-            return self.cdf[var][:]
+        elif var in self.ds:
+            # return self.ds[var][:]
+            return self.ds[var].values
         else:
             self.log.error(("Non-existent variable %s " % (str(var))
                             + "requested through getattr. Returning None"))

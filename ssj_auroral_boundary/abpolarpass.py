@@ -11,7 +11,9 @@ import matplotlib as mpl
 
 # If not running interactively, run using the non-GUI backend. 
 # Don't force the backend change if backend already set.
+mpl.rcParams.update({'text.usetex': False})
 mpl.use('Agg', force=False)
+mpl.rcParams.update({'text.usetex': False})
 
 from matplotlib import pyplot as pp
 import matplotlib.transforms as mtransforms
@@ -19,8 +21,11 @@ import matplotlib.transforms as mtransforms
 from geospacepy import satplottools
 
 from ssj_auroral_boundary import loggername,loggername_poes
-from ssj_auroral_boundary.absegment import absegment
+from ssj_auroral_boundary.absegment import absegment,absegment_poes
 from ssj_auroral_boundary import dmsp_spectrogram
+
+from pandas.plotting import register_matplotlib_converters
+register_matplotlib_converters()
 
 try:
     import seaborn as sns
@@ -437,7 +442,7 @@ class abpolarpass(object):
 
         total_missing_samples = 0
         longest_strech_missing = 0
-        for c in range(len(diff_eflux[0,:])): #Iterate over columns
+        for c in range(len(diff_eflux[0,:])): #Iterate over columns (i.e., channels)
             badinds[c] = np.flatnonzero(np.logical_not(np.isfinite(diff_eflux[:,c])))
             goodinds[c] = np.flatnonzero(np.isfinite(diff_eflux[:,c]))
             self.log.info('Channel #%d (E=%.3feV) had %d nan points' % (c,channel_energies[c],len(badinds[c])))
@@ -816,22 +821,22 @@ class abpolarpass_poes(object):
     someone who wants to integrated the code into thier own application and
     read boundaries directly from these objects instead of using output CSVs.
 
-    Implements __getitem__ interface to access any data marked with (from CDF)
+    Implements __getitem__ interface to access any data marked with (from NC/xarray)
     in absatday.absatday docstring. Slices data from parent absatday as
     idx_pass_start:idx_pass_end (see constructor docstring).
 
     """
     def __init__(self, satday, ind_pass_start, ind_pass_end):
-        """Constructor for abpolarpass
+        """Constructor for abpolarpass_poes
 
         Parameters
         ----------
         satday : ssj_auroral_boundary.absatday.absatday
             Parent absatday object
         ind_pass_start : int
-            Index of polar pass start in SSJ CDF
+            Index of polar pass start in TED NC
         ind_pass_end : int
-            Index of polar pass end in SSJ CDF
+            Index of polar pass end in TED NC
 
         """
         self.log = logging.getLogger(loggername_poes+'.'+self.__class__.__name__)
@@ -842,18 +847,43 @@ class abpolarpass_poes(object):
         self.hemi = 'N' if np.nanmean(self['mlat'])>1 else 'S'
         self.idx_pole_approach = np.argmax(np.abs(self['mlat']))
 
+        ########################################
         #Boundary Finding Settings
+
+        ####################
+        # ORIGINAL FOR DMSP
         self.MAX_DATA_GAP = 60 #Max number of missing seconds in top 9 channels
         #self.FLUX_MIN = 10**6.5 # Original (possibly appropriate for J4?)
         self.FLUX_MIN = 10**9
+
         self.MIN_IND_GAP = 5     # min # of samples between individial segments
         self.MIN_SAMPLES = 45    # min # samples within a peak, 1 sample = 1 sec
+
         self.MIN_LAT     = 50.   # start search
         self.MIN_DT      = 120.  # min sec between end of peak[n] and start of
                             #peak[n+1].  (smaller than this is a skimmer pass)
         self.MIN_DT_AREA = 30.   # minimum seconds of an area.
                             #(smaller than this should be ignored)
         self.MIN_EQ_SPIKE_DT = 30. # used for selecting equatorward edge of the auroral zone
+
+        ####################
+        # For POES/MetOp
+        self.MAX_DATA_GAP = 30 #Max number of missing samples (with 2 seconds per sample)
+        self.FLUX_MIN = 0.003   # For NOAA POES 'ted_ele_tel0_hi_eflux'
+        # self.FLUX_MIN = 0.001   # For NOAA POES 'ted_ele_tel0_hi_eflux'
+
+        self.MIN_IND_GAP = 2     # min # of samples between individial segments (corresponds to 4 s, whereas Kilcommons' DMSP setting corresponds to 5 s)
+        self.MIN_SAMPLES = 22    # min # samples within a peak, 1 sample = 2 sec for POES/MetOp TED data (NB!)
+
+        self.MIN_LAT     = 50.   # start search
+        self.MIN_DT      = 120.  # min sec between end of peak[n] and start of
+                            #peak[n+1].  (smaller than this is a skimmer pass)
+        self.MIN_DT_AREA = 30.   # minimum seconds of an area.
+                            #(smaller than this should be ignored)
+        self.MIN_EQ_SPIKE_DT = 30. # used for selecting equatorward edge of the auroral zone
+
+        self.WINDOW_SIZE = 7        # number of points. Kilcommons wants 15 seconds' worth, but POES resolution only allows for 14 or 16 seconds' worth. We pick 14 seconds (7 samples).
+
 
         #Define empty versions of everything
 
@@ -884,8 +914,6 @@ class abpolarpass_poes(object):
 
         # Integrate the flux and determine how much data is available in this
         # pass
-        print("NOTE: THIS IS WHERE WE ARE STUCK (2021-02-24). I have not tried to figure out how to deal with the fact that POES data is already integrated")
-        breakpoint()
 
         (self.intflux, self.total_missing_samples,
          self.longest_strech_missing) = self.prepare_flux_data()
@@ -920,7 +948,7 @@ class abpolarpass_poes(object):
         if self.intflux is not None and self.satday.make_plot:
             if self.failure_reason is None or self.satday.plot_failed:
                 f = self.plot()
-                split_text = os.path.split(self.satday.cdffn)[-1]
+                split_text = os.path.split(self.satday.ncfn)[-1]
                 self.figfile = os.path.splitext(split_text)[0] + \
                 '_{:s}pass_uts{:05.0f}_uts{:05.0f}.png'.format(self.hemi, \
                                                 np.floor(self['uts'][0]), \
@@ -986,6 +1014,7 @@ class abpolarpass_poes(object):
             Describes polar cap
 
         """
+        breakpoint()
         desc1 = "Boundary 1: %.3f-%.3f, A1: %.1e, RelUncertA1: %.1f, A1/A_max: %.3f, twidth1: %.3fs" % (self['mlat'][self.idx_equator1], self['mlat'][self.idx_pole1], self.segment1.area,self.segment1.area_uncert,self.segment1.area/self.max_seg_area, self.segment1.twidth)
         desc2 = "Boundary 2: %.3f-%.3f, A2: %.1e, RelUncertA2: %.1f, A2/A_max: %.3f, twidth2: %.3fs" % (self['mlat'][self.idx_equator2],self['mlat'][self.idx_pole2], self.segment2.area,self.segment2.area_uncert,self.segment2.area/self.max_seg_area, self.segment2.twidth)
         descpc = "Polar Cap Width in Time %.1f sec, Boundary Set Score/FOM %.1f" % (self.segment2['uts'][0]-self.segment1['uts'][-1], self.max_fom)
@@ -1041,19 +1070,20 @@ class abpolarpass_poes(object):
         X,Y = satplottools.latlt2cart(self['mlat'], self['mlt'], self.hemi)
         a.plot(X,Y,'k.',markersize=ms)
 
-        mappable = satplottools.hairplot(a, self['mlat'], self['mlt'],
-                                         np.log10(self['intflux']), self.hemi,
+        finites = np.isfinite(np.log10(self['intflux']))
+        mappable = satplottools.hairplot(a, self['mlat'][finites], self['mlt'][finites],
+                                         np.log10(self['intflux'][finites]), self.hemi,
                                          vmin=np.log10(self.FLUX_MIN), vmax=12)
         f.colorbar(mappable,label='log$_{10}$(Smoothed Integrated EEFlux)',
                    ax=a)
 
-        titlstr = "%s\n" % (os.path.split(self.satday.cdffn)[1])
+        titlstr = "%s\n" % (os.path.split(self.satday.ncfn)[1])
 
         a.text(0, 0, self.hemi)
         #def dmsp_spectrogram( times, flux, channel_energies, lat=None, lt=None, fluxunits='eV/cm^2-s-sr-eV',
         #        logy=True, datalabel=None, cblims=None, title=None, ax=None, ax_cb=None ):
 
-        fluxstd = self.moving_average(self['total_flux_std'],15)
+        fluxstd = self.moving_average(self['total_flux_std'],self.WINDOW_SIZE)
         a2.plot(self['uts'], self['intflux'],'k.',
                 label='Smoothed Int >1KeV Flx', ms=5.)
         a2.plot(self['uts'], fluxstd, 'r.', ms=3, label='Relative Uncertainty')
@@ -1062,13 +1092,13 @@ class abpolarpass_poes(object):
         a2.set_xlabel("UT Second of Day")
         a2.set_yscale('log')
         a2.axhline(self.FLUX_MIN,label='Threshold',color='grey')
-        a2_title = "Integrated Flux (9 Highest E Channels %.2feV-%.2feV)" % (self['channel_energies'][0], self['channel_energies'][8])
+        a2_title = "Integrated Flux"
         a2.set_title(a2_title, fontsize="medium")
 
-        dmsp_spectrogram.dmsp_spectrogram(self['time'], self['diff_flux'],
-                                          self['channel_energies'],
-                                          lat=self['mlat'], lt=self['mlt'],
-                                          ax=a3, cblims=[1e5,1e10])
+        # dmsp_spectrogram.dmsp_spectrogram(self['time'], self['diff_flux'],
+        #                                   self['channel_energies'],
+        #                                   lat=self['mlat'], lt=self['mlt'],
+        #                                   ax=a3, cblims=[1e5,1e10])
         #a3.set_ylim([1e2,1e5])
 
         if self.segments is not None:
@@ -1136,6 +1166,7 @@ class abpolarpass_poes(object):
         if self.failure_reason is not None:
             a.text(-40,-60,self.failure_reason,color='red')
         else:
+            breakpoint()
             desc = "Boundary 1: %.3f-%.3f, A: %.1e, RelUncertA: %.1f, A/A_max: %.3f, twidth: %.3fs\n" % (self['mlat'][self.idx_equator1], self['mlat'][self.idx_pole1], self.segment1.area,self.segment1.area_uncert,self.segment1.area/self.max_seg_area, self.segment1.twidth)
             desc += "Boundary 2: %.3f-%.3f,A: %.1e, RelUncertA: %.1f, A/A_max: %.3f, twidth: %.3fs\n" % (self['mlat'][self.idx_equator2],self['mlat'][self.idx_pole2], self.segment2.area,self.segment2.area_uncert,self.segment2.area/self.max_seg_area, self.segment2.twidth)
             desc += "Polar Cap Width in Time %.1f sec" % (self.segment2['uts'][0]-self.segment1['uts'][-1])
@@ -1174,117 +1205,64 @@ class abpolarpass_poes(object):
             return self.satday[var][self.si:self.ei+1]
 
     def prepare_flux_data(self):
-        #Compute indices of all flux columns' bad data, determine if there are
-        #too many gaps
-        channel_gaps_unacceptable = []
-        badinds,goodinds = dict(),dict()
-        diff_eflux = self['diff_flux']
-        channel_energies = self['channel_energies']
+        #Compute indices of all flux columns' bad data, determine if there are too many gaps
+        
+        # channel_gaps_unacceptable = []
+        # badinds,goodinds = dict(),dict()
+        # diff_eflux = self['diff_flux']
+        # channel_energies = self['channel_energies']
 
-        total_missing_samples = 0
+        # total_missing_samples = 0
         longest_strech_missing = 0
-        for c in range(len(diff_eflux[0,:])): #Iterate over columns
-            badinds[c] = np.flatnonzero(np.logical_not(np.isfinite(diff_eflux[:,c])))
-            goodinds[c] = np.flatnonzero(np.isfinite(diff_eflux[:,c]))
-            self.log.info('Channel #%d (E=%.3feV) had %d nan points' % (c,channel_energies[c],len(badinds[c])))
+        badinds = np.flatnonzero(np.logical_not(np.isfinite(self['total_flux'])))
+        total_missing_samples = len(badinds)
+        ngaps_unacceptable = len(badinds) > self.MAX_DATA_GAP*2
+        # for c in range(len(diff_eflux[0,:])): #Iterate over columns
+        #     badinds[c] = np.flatnonzero(np.logical_not(np.isfinite(diff_eflux[:,c])))
+        #     goodinds[c] = np.flatnonzero(np.isfinite(diff_eflux[:,c]))
+        #     self.log.info('Channel #%d (E=%.3feV) had %d nan points' % (c,channel_energies[c],len(badinds[c])))
             # ;Time gaps:  Look for them in each of the 9 highest channels since those are the channels we're using
             # ;TODO: look for 1) total missing number of samples; 2) longest stretch of missing data
-            channel_gaps_unacceptable.append(len(badinds[c]) > self.MAX_DATA_GAP)
-            total_missing_samples += len(badinds[c])
+            # channel_gaps_unacceptable.append(len(badinds[c]) > self.MAX_DATA_GAP*2)
+            # total_missing_samples += len(badinds[c])
             #Find the largest difference in time between good values
-            if len(badinds[c])>1:
-                longest_strech_missing = longest_strech_missing if longest_strech_missing > np.nanmax(np.diff(badinds[c])) else np.nanmax(np.diff(badinds[c]))
+            # if len(badinds[c])>1:
+            #     longest_strech_missing = longest_strech_missing if longest_strech_missing > np.nanmax(np.diff(badinds[c])) else np.nanmax(np.diff(badinds[c]))
 
-        ngaps_unacceptable = all(channel_gaps_unacceptable)
+        
+
+        # ngaps_unacceptable = all(channel_gaps_unacceptable)
         if ngaps_unacceptable:
-            self.log.error('Highest 9 SSJ channels ALL had more than %d missing seconds of data, this polar pass will be ignored' % (self.MAX_DATA_GAP))
-            self.failure_reason = 'Too many missing seconds (>%d) of data in SSJ channels' % (self.MAX_DATA_GAP)
+            self.log.error('TED electron eFlux had more than %d missing seconds of data, this polar pass will be ignored' % (self.MAX_DATA_GAP*2))  # *2 because 2 seconds per sample with TED data
+            self.failure_reason = 'Too many missing seconds (>%d) of data in TED flux data' % (self.MAX_DATA_GAP*2)
             return None,None,None
 
+        ##############################
         # Integrate the flux
         #Calling '__getitem__', i.e. using self as a dictionary (self['key']) returns:
         #    All columns from the parent satday variable satday.key, for only the rows that correspond to this pass
-        intflux_notsmooth = self.flux_integrate(self['diff_flux'],self['channel_energies'])
+
+        # DMSP ORIG
+        # intflux_notsmooth = self.flux_integrate(self['diff_flux'],self['channel_energies'])
+
+        # NOAA VERSION (pre-integrated above 1 keV)
+        intflux_notsmooth = self['total_flux']
+        # intflux_notsmooth = self.flux_integrate(self['diff_flux'],self['channel_energies'])
+
         #Integrate the uncertainty
         #intflux_std_notsmooth = self.std_integrate(self['diff_flux_std'],self['channel_energies'])
 
         self.log.debug("In prepare_flux_data, shape intflux is %s" % (str(intflux_notsmooth.shape)))
         #Fail if there aren't enough points to smooth
-        if len(intflux_notsmooth) < 15:
-            self.log.error('Not enough points to smooth %d < 15' % (len(intflux_notsmooth)))
+        if len(intflux_notsmooth) < self.WINDOW_SIZE:
+            self.log.error('Not enough points to smooth %d < %d' % (len(intflux_notsmooth),self.WINDOW_SIZE))
             self.failure_reason = 'Not enough data to smooth integrated flux!'
             return None, None, None
 
-        intflux = self.moving_average(intflux_notsmooth,15)
-        #intflux_std = self.moving_average(intflux_std_notsmooth,15)
+        intflux = self.moving_average(intflux_notsmooth,self.WINDOW_SIZE)
+        #intflux_std = self.moving_average(intflux_std_notsmooth,self.WINDOW_SIZE)
         return intflux,total_missing_samples,longest_strech_missing
 
-    def std_integrate(self,diff_flux_std,energies):
-        """
-        Integrate the UNCERTAINTY in differential flux using Hardy algorithm for
-        channel energy width.
-        Just applying the standard uncertainty propagation formula
-        Assumes no covariance between channel fluxes (as done with SSJ uncertainty creation)
-
-        sJE(je_i)^2 = SUM[ (dJE/dje_i)^2*sje_i^2 ]
-
-        where s represents uncertainty
-        JE is integrated flux
-        je_i is differential flux of i-th SSJ channel
-        and the SUM runs over i in 0 (30KeV) to 8(1.392 KeV)
-        """
-        c = energies.copy()
-
-        #Turn all NaN to zeros for purposes of integration
-        nantozero_std = diff_flux_std.copy()
-        for ch in range(len(nantozero_std[0,:])):
-            bad = np.logical_not(np.isfinite(nantozero_std[:,ch]))
-            neg = nantozero_std[:,ch]<0.
-
-            nantozero_std[np.logical_or(bad,neg),ch] = 0.
-
-        #Integrate
-        std_integrated  = (c[0] - c[1])**2*nantozero_std[:,0]**2 +\
-                            (1./2*(c[0] - c[2]))**2*nantozero_std[:,1]**2 +\
-                            (1./2*(c[1] - c[3]))**2*nantozero_std[:,2]**2 +\
-                            (1./2*(c[2] - c[4]))**2*nantozero_std[:,3]**2 +\
-                            (1./2*(c[3] - c[5]))**2*nantozero_std[:,4]**2 +\
-                            (1./2*(c[4] - c[6]))**2*nantozero_std[:,5]**2 +\
-                            (1./2*(c[5] - c[7]))**2*nantozero_std[:,6]**2 +\
-                            (1./2*(c[6] - c[8]))**2*nantozero_std[:,7]**2 +\
-                                 (c[7] - c[8])**2*nantozero_std[:,8]**2
-        return np.sqrt(std_integrated)
-
-    def flux_integrate(self,diff_flux,energies):
-        """Integrate the differential flux using Hardy algorithm for
-        channel energy width
-        From Redmon IDL version:
-        ; Integrates UPPER (30keV to 1.39keV) Differential energy fluxes.
-        ; ASSUMES these channels are the 0th - 8th columns in the input matrix.
-        ; Does NOT do any smoothing or other funny business!
-        """
-        c = energies.copy()
-
-        #Turn all NaN to zeros for purposes of integration
-        nantozero_flux = diff_flux.copy()
-        for ch in range(len(nantozero_flux[0,:])):
-            bad = np.logical_not(np.isfinite(nantozero_flux[:,ch]))
-            neg = nantozero_flux[:,ch]<0.
-
-            nantozero_flux[np.logical_or(bad,neg),ch] = 0.
-
-        #Integrate
-        flux_integrated  = (c[0] - c[1])*nantozero_flux[:,0] +\
-                            1./2*(c[0] - c[2])*nantozero_flux[:,1] +\
-                            1./2*(c[1] - c[3])*nantozero_flux[:,2] +\
-                            1./2*(c[2] - c[4])*nantozero_flux[:,3] +\
-                            1./2*(c[3] - c[5])*nantozero_flux[:,4] +\
-                            1./2*(c[4] - c[6])*nantozero_flux[:,5] +\
-                            1./2*(c[5] - c[7])*nantozero_flux[:,6] +\
-                            1./2*(c[6] - c[8])*nantozero_flux[:,7] +\
-                                 (c[7] - c[8])*nantozero_flux[:,8]
-
-        return flux_integrated
 
     def rolling_window(self,a, window):
         shape = a.shape[:-1] + (a.shape[-1] - window + 1, window)
@@ -1301,11 +1279,12 @@ class abpolarpass_poes(object):
                                               window_size), -1)
 
     def find_segments(self):
+
         uts = self['uts']
         lat = self['mlat']
         mlt = self['mlt']
         intflux = self['intflux']
-        stdflux = self.moving_average(self['total_flux_std'],15) # Smoothed
+        stdflux = self.moving_average(self['total_flux_std'],self.WINDOW_SIZE) # Smoothed
         #lowerbndflux = intflux - 3*stdflux*intflux #3std lower bound
 
         #self.log.debug('In find_segments intflux.shape is %s, lat.shape is %s ' % (str(intflux.shape),str(lat.shape)))
@@ -1376,9 +1355,9 @@ class abpolarpass_poes(object):
             return None,None
 
         # "unibrow" skimmer pass (i.e. humps too close together) => Skip
-        if np.max( deltaflux ) < self.MIN_DT :
+        if np.max( deltaflux )*2 < self.MIN_DT :
             self.log.error("skimmer pass => SKIPPING")
-            self.failure_reason = "Regions of above threshold flux too close.\n(dt: %.1f < %.1f) (borderline unibrow)" % (np.max(deltaflux),self.MIN_DT)
+            self.failure_reason = "Regions of above threshold flux too close.\n(dt: %.1f < %.1f) (borderline unibrow)" % (np.max(deltaflux)*2,self.MIN_DT)
             return None,None
 
         #If we got this far we can turn self.segments into something other than None
@@ -1389,7 +1368,7 @@ class abpolarpass_poes(object):
         for k in range(n_segments):
             si,ei = idx_crosses[idx_segment_starts[k]],idx_crosses[idx_segment_ends[k]]
             self.log.debug("Now processing segment %d: idx_segment_starts = %d, idx_segment_ends = %d" % (k,si,ei))
-            segments.append(absegment(self,si,ei))
+            segments.append(absegment_poes(self,si,ei))
             self.log.debug("\n--Added Segment #%d: (t[%d]=%.1f,lat[%d]=%.3f) - (t[%d]=%.1f,lat[%d]=%.3f), delta_t = %s seconds" % (k,
                 si,uts[si],si,lat[si],ei,uts[ei],ei,lat[ei],uts[ei]-uts[si]))
             new_max_seg_area = max([abs(max_seg_area),abs(segments[-1].area)])
@@ -1418,6 +1397,9 @@ class abpolarpass_poes(object):
                 #Require that both segements are wider than a tuning parameter
                 #This prevents isolated spikes that maximize the fom because they are low latitude
                 #From being picked
+                # print("**********************************")
+                # print("NEED TO CONFIRM THAT THIS IS OK. ARE .twidth MEMBERS ACTUALLY time widths, or just differences between indices?")
+                # print("**********************************")
                 if s1.twidth < self.MIN_DT_AREA or s2.twidth < self.MIN_DT_AREA:
                     fom = np.nan
                     fom_failure_reason = "Areas are too short < %s " % (str(self.MIN_DT_AREA))

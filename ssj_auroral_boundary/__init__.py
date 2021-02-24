@@ -27,6 +27,7 @@ __version__ = str("0.1.1")
 
 #Prefix for all package loggers
 loggername = 'ssj_auroral_boundary'
+loggername_poes = 'ted_auroral_boundary'
 
 __all__ = ['absatday', 'abpolarpass', 'absegment', 'abcsv', 'files',
            'dmsp_spectrogram']

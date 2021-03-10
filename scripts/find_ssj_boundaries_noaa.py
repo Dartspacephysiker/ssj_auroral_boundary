@@ -8,7 +8,9 @@
 import numpy as np
 import matplotlib as mpl
 mpl.use('Agg') # Use the non-GUI backend
+# mpl.rcParams["text.usetex"] = False
 from matplotlib import pyplot as pp
+# pp.rcParams["text.usetex"] = False
 import matplotlib.transforms as mtransforms
 import logging,sys,datetime,os,argparse,shutil,traceback
 

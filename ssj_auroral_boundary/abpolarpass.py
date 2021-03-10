@@ -12,7 +12,7 @@ import matplotlib as mpl
 # If not running interactively, run using the non-GUI backend. 
 # Don't force the backend change if backend already set.
 mpl.rcParams.update({'text.usetex': False})
-mpl.use('Agg', force=False)
+mpl.use('Agg', force=True)
 mpl.rcParams.update({'text.usetex': False})
 
 from matplotlib import pyplot as pp
@@ -33,7 +33,7 @@ except:
     pass
 
 class abpolarpass(object):
-    """A class for encapulating each spacecraft pass over the pole.
+    """A class for encapsulating each spacecraft pass over the pole.
 
     Attributes
     ----------
@@ -313,12 +313,13 @@ class abpolarpass(object):
         #        logy=True, datalabel=None, cblims=None, title=None, ax=None, ax_cb=None ):
 
         fluxstd = self.moving_average(self['total_flux_std'],15)
-        a2.plot(self['uts'], self['intflux'],'k.',
+        a2.plot(self['uts']/3600., self['intflux'],'k.',
                 label='Smoothed Int >1KeV Flx', ms=5.)
-        a2.plot(self['uts'], fluxstd, 'r.', ms=3, label='Relative Uncertainty')
+        a2.plot(self['uts']/3600., fluxstd, 'r.', ms=3, label='Relative Uncertainty')
         #a2.axhline(np.nanmean(fluxstd)-.5*np.nanstd(fluxstd),label='Mean Uncertainty',color='orange')
         #a2.plot(self['uts'],self['intflux']-3*self['intflux']*fluxstd,'g.',ms=5,label='3*std lower bound')
-        a2.set_xlabel("UT Second of Day")
+        # a2.set_xlabel("UT Second of Day")
+        a2.set_xlabel("UT Hour of Day")
         a2.set_yscale('log')
         a2.axhline(self.FLUX_MIN,label='Threshold',color='grey')
         a2_title = "Integrated Flux (9 Highest E Channels %.2feV-%.2feV)" % (self['channel_energies'][0], self['channel_energies'][8])
@@ -332,7 +333,7 @@ class abpolarpass(object):
 
         if self.segments is not None:
             for seg in self.segments:
-                a2.axvspan(seg['uts'][0], seg['uts'][-1], facecolor='m',
+                a2.axvspan(seg['uts'][0]/3600., seg['uts'][-1]/3600., facecolor='m',
                            alpha=.2)
 
         a2.grid(True)
@@ -343,7 +344,7 @@ class abpolarpass(object):
         #Add boundaries
         if self.idx_equator1 is not None:
             a.plot(X[self.idx_equator1], Y[self.idx_equator1], 'bo', alpha=.5)
-            a2.axvline(self['uts'][self.idx_equator1], color='b', label='EQ1',
+            a2.axvline(self['uts'][self.idx_equator1]/3600., color='b', label='EQ1',
                        lw=lw)
             a3.axvline(self['time'][self.idx_equator1], color='b', label='EQ1',
                        lw=lw)
@@ -354,7 +355,7 @@ class abpolarpass(object):
 
         if self.idx_pole1 is not None:
             a.plot(X[self.idx_pole1], Y[self.idx_pole1], 'ro', alpha=.5)
-            a2.axvline(self['uts'][self.idx_pole1], color='r', label='PO1',
+            a2.axvline(self['uts'][self.idx_pole1]/3600., color='r', label='PO1',
                        lw=lw)
             a3.axvline(self['time'][self.idx_pole1], color='r', label='PO1',
                        lw=lw)
@@ -366,7 +367,7 @@ class abpolarpass(object):
         if self.idx_pole2 is not None:
             a.plot(X[self.idx_pole2], Y[self.idx_pole2], 'o', color='m',
                    alpha=.5)
-            a2.axvline(self['uts'][self.idx_pole2], color='m',
+            a2.axvline(self['uts'][self.idx_pole2]/3600., color='m',
                        label='PO2', lw=lw)
             a3.axvline(self['time'][self.idx_pole2], color='m',
                        label='PO2', lw=lw)
@@ -377,7 +378,7 @@ class abpolarpass(object):
 
         if self.idx_equator2 is not None:
             a.plot(X[self.idx_equator2], Y[self.idx_equator2], 'o', color='deepskyblue', alpha=.5)
-            a2.axvline(self['uts'][self.idx_equator2], color='deepskyblue', label='EQ2',
+            a2.axvline(self['uts'][self.idx_equator2]/3600., color='deepskyblue', label='EQ2',
                        lw=lw)
             a3.axvline(self['time'][self.idx_equator2], color='deepskyblue', label='EQ2',
                        lw=lw)
@@ -390,7 +391,7 @@ class abpolarpass(object):
             titlstr = titlstr[:-1]+'\n' # Remove trailing comma, add newline
 
         #a.legend(ncol=2, fontsize="medium")
-        a2.legend(loc=0, fontsize="medium")
+        a2.legend(loc=0, fontsize="medium",framealpha=0)
 
         if self.failure_reason is not None:
             a.text(-40,-60,self.failure_reason,color='red')
@@ -776,7 +777,7 @@ class abpolarpass(object):
 
 
 class abpolarpass_poes(object):
-    """A class for encapulating each spacecraft pass over the pole.
+    """A class for encapsulating each spacecraft pass over the pole.
 
     Attributes
     ----------
@@ -852,19 +853,19 @@ class abpolarpass_poes(object):
 
         ####################
         # ORIGINAL FOR DMSP
-        self.MAX_DATA_GAP = 60 #Max number of missing seconds in top 9 channels
-        #self.FLUX_MIN = 10**6.5 # Original (possibly appropriate for J4?)
-        self.FLUX_MIN = 10**9
+        # self.MAX_DATA_GAP = 60 #Max number of missing seconds in top 9 channels
+        # #self.FLUX_MIN = 10**6.5 # Original (possibly appropriate for J4?)
+        # self.FLUX_MIN = 10**9
 
-        self.MIN_IND_GAP = 5     # min # of samples between individial segments
-        self.MIN_SAMPLES = 45    # min # samples within a peak, 1 sample = 1 sec
+        # self.MIN_IND_GAP = 5     # min # of samples between individial segments
+        # self.MIN_SAMPLES = 45    # min # samples within a peak, 1 sample = 1 sec
 
-        self.MIN_LAT     = 50.   # start search
-        self.MIN_DT      = 120.  # min sec between end of peak[n] and start of
-                            #peak[n+1].  (smaller than this is a skimmer pass)
-        self.MIN_DT_AREA = 30.   # minimum seconds of an area.
-                            #(smaller than this should be ignored)
-        self.MIN_EQ_SPIKE_DT = 30. # used for selecting equatorward edge of the auroral zone
+        # self.MIN_LAT     = 50.   # start search
+        # self.MIN_DT      = 120.  # min sec between end of peak[n] and start of
+        #                     #peak[n+1].  (smaller than this is a skimmer pass)
+        # self.MIN_DT_AREA = 30.   # minimum seconds of an area.
+        #                     #(smaller than this should be ignored)
+        # self.MIN_EQ_SPIKE_DT = 30. # used for selecting equatorward edge of the auroral zone
 
         ####################
         # For POES/MetOp
@@ -1014,11 +1015,15 @@ class abpolarpass_poes(object):
             Describes polar cap
 
         """
-        breakpoint()
+
         desc1 = "Boundary 1: %.3f-%.3f, A1: %.1e, RelUncertA1: %.1f, A1/A_max: %.3f, twidth1: %.3fs" % (self['mlat'][self.idx_equator1], self['mlat'][self.idx_pole1], self.segment1.area,self.segment1.area_uncert,self.segment1.area/self.max_seg_area, self.segment1.twidth)
         desc2 = "Boundary 2: %.3f-%.3f, A2: %.1e, RelUncertA2: %.1f, A2/A_max: %.3f, twidth2: %.3fs" % (self['mlat'][self.idx_equator2],self['mlat'][self.idx_pole2], self.segment2.area,self.segment2.area_uncert,self.segment2.area/self.max_seg_area, self.segment2.twidth)
         descpc = "Polar Cap Width in Time %.1f sec, Boundary Set Score/FOM %.1f" % (self.segment2['uts'][0]-self.segment1['uts'][-1], self.max_fom)
         return desc1,desc2,descpc
+
+        desc1 = ""
+        desc2 = ""
+        descpc = ""
 
     def shade_boundary_canidates(self, ax, timevar='uts', color='slategrey',
                                  alpha=.2, fs=12):
@@ -1059,10 +1064,11 @@ class abpolarpass_poes(object):
         f = pp.figure(figsize=(8.5,11),dpi=300)
         a = f.add_subplot(3,1,1)
         a2 = f.add_subplot(3,1,2)
-        a3 = f.add_subplot(3,1,3)
+        # a3 = f.add_subplot(3,1,3)
 
         iflx = self['intflux']
-        iflx[iflx==0.] = .1
+        # iflx[iflx==0.] = .1
+        iflx[iflx<self.FLUX_MIN] = -1
 
         ms=2
 
@@ -1070,26 +1076,50 @@ class abpolarpass_poes(object):
         X,Y = satplottools.latlt2cart(self['mlat'], self['mlt'], self.hemi)
         a.plot(X,Y,'k.',markersize=ms)
 
+        vmax = 1
+        vmin = np.log10(self.FLUX_MIN)
+        vdelta = vmax-vmin
+
         finites = np.isfinite(np.log10(self['intflux']))
+        # breakpoint()
         mappable = satplottools.hairplot(a, self['mlat'][finites], self['mlt'][finites],
-                                         np.log10(self['intflux'][finites]), self.hemi,
-                                         vmin=np.log10(self.FLUX_MIN), vmax=12)
-        f.colorbar(mappable,label='log$_{10}$(Smoothed Integrated EEFlux)',
+                                         np.log10(self['intflux'][finites])-vmin, self.hemi,
+                                         vmin=0, vmax=vdelta)#,
+                                         # vmin=vmin, vmax=vmax)#,
+                                         # min_displayed=vmin-1
+
+        # f.colorbar(mappable,label='log$_{10}$(Smoothed Integrated EEFlux)',
+        #            ax=a)
+
+        realmappable = mpl.cm.ScalarMappable(norm=mpl.colors.Normalize(vmin=vmin,vmax=vmax))
+        f.colorbar(realmappable,label='log$_{10}$(Smoothed Integrated EEFlux)',
                    ax=a)
 
-        titlstr = "%s\n" % (os.path.split(self.satday.ncfn)[1])
+        titlstr = "%s\n" % (os.path.split(self.satday.ncfn)[1].replace("_","\_"))
+        titlstr = "%s (FLUX\_MIN = %.0e)\n" % (os.path.split(self.satday.ncfn)[1].replace("_","\_"),self.FLUX_MIN)
+        # DEBUG
+        # titlstr = " "
 
         a.text(0, 0, self.hemi)
         #def dmsp_spectrogram( times, flux, channel_energies, lat=None, lt=None, fluxunits='eV/cm^2-s-sr-eV',
         #        logy=True, datalabel=None, cblims=None, title=None, ax=None, ax_cb=None ):
 
         fluxstd = self.moving_average(self['total_flux_std'],self.WINDOW_SIZE)
-        a2.plot(self['uts'], self['intflux'],'k.',
-                label='Smoothed Int >1KeV Flx', ms=5.)
-        a2.plot(self['uts'], fluxstd, 'r.', ms=3, label='Relative Uncertainty')
+        a2.plot(self['uts']/3600., self['intflux'],'k.',
+                label='Smoothed Int $>$1KeV Flx', ms=5.)
+        a2sub = a2.twinx()
+        a2sub.plot(self['uts']/3600., fluxstd, 'r.', ms=3, label='Relative Uncertainty')
+
+        c2 = 'red'
+        a2sub.axes.spines['right'].set_color(c2)
+        a2sub.yaxis.label.set_color(c2)
+        a2sub.tick_params(axis='y', colors=c2)
+        a2sub.set_ylabel('Relative Uncertainty')
+
         #a2.axhline(np.nanmean(fluxstd)-.5*np.nanstd(fluxstd),label='Mean Uncertainty',color='orange')
         #a2.plot(self['uts'],self['intflux']-3*self['intflux']*fluxstd,'g.',ms=5,label='3*std lower bound')
-        a2.set_xlabel("UT Second of Day")
+        # a2.set_xlabel("UT Second of Day")
+        a2.set_xlabel("UT Hour of Day")
         a2.set_yscale('log')
         a2.axhline(self.FLUX_MIN,label='Threshold',color='grey')
         a2_title = "Integrated Flux"
@@ -1103,21 +1133,21 @@ class abpolarpass_poes(object):
 
         if self.segments is not None:
             for seg in self.segments:
-                a2.axvspan(seg['uts'][0], seg['uts'][-1], facecolor='m',
+                a2.axvspan(seg['uts'][0]/3600., seg['uts'][-1]/3600., facecolor='m',
                            alpha=.2)
 
         a2.grid(True)
-        a3.grid(True)
+        # a3.grid(True)
 
         lw=1.5
         txtshift=5
         #Add boundaries
         if self.idx_equator1 is not None:
             a.plot(X[self.idx_equator1], Y[self.idx_equator1], 'bo', alpha=.5)
-            a2.axvline(self['uts'][self.idx_equator1], color='b', label='EQ1',
+            a2.axvline(self['uts'][self.idx_equator1]/3600., color='b', label='EQ1',
                        lw=lw)
-            a3.axvline(self['time'][self.idx_equator1], color='b', label='EQ1',
-                       lw=lw)
+            # a3.axvline(self['time'][self.idx_equator1], color='b', label='EQ1',
+            #            lw=lw)
             a.text(X[self.idx_equator1], Y[self.idx_equator1]-txtshift, "EQ1",
                    color='b', horizontalalignment='left')
         else:
@@ -1125,10 +1155,10 @@ class abpolarpass_poes(object):
 
         if self.idx_pole1 is not None:
             a.plot(X[self.idx_pole1], Y[self.idx_pole1], 'ro', alpha=.5)
-            a2.axvline(self['uts'][self.idx_pole1], color='r', label='PO1',
+            a2.axvline(self['uts'][self.idx_pole1]/3600., color='r', label='PO1',
                        lw=lw)
-            a3.axvline(self['time'][self.idx_pole1], color='r', label='PO1',
-                       lw=lw)
+            # a3.axvline(self['time'][self.idx_pole1], color='r', label='PO1',
+            #            lw=lw)
             a.text(X[self.idx_pole1], Y[self.idx_pole1]-txtshift, "PO1",
                    color='r', horizontalalignment='right')
         else:
@@ -1137,10 +1167,10 @@ class abpolarpass_poes(object):
         if self.idx_pole2 is not None:
             a.plot(X[self.idx_pole2], Y[self.idx_pole2], 'o', color='m',
                    alpha=.5)
-            a2.axvline(self['uts'][self.idx_pole2], color='m',
+            a2.axvline(self['uts'][self.idx_pole2]/3600., color='m',
                        label='PO2', lw=lw)
-            a3.axvline(self['time'][self.idx_pole2], color='m',
-                       label='PO2', lw=lw)
+            # a3.axvline(self['time'][self.idx_pole2], color='m',
+            #            label='PO2', lw=lw)
             a.text(X[self.idx_pole2],Y [self.idx_pole2]-txtshift, "PO2",
                    color='m', horizontalalignment='left')
         else:
@@ -1148,10 +1178,10 @@ class abpolarpass_poes(object):
 
         if self.idx_equator2 is not None:
             a.plot(X[self.idx_equator2], Y[self.idx_equator2], 'o', color='deepskyblue', alpha=.5)
-            a2.axvline(self['uts'][self.idx_equator2], color='deepskyblue', label='EQ2',
+            a2.axvline(self['uts'][self.idx_equator2]/3600., color='deepskyblue', label='EQ2',
                        lw=lw)
-            a3.axvline(self['time'][self.idx_equator2], color='deepskyblue', label='EQ2',
-                       lw=lw)
+            # a3.axvline(self['time'][self.idx_equator2], color='deepskyblue', label='EQ2',
+            #            lw=lw)
             a.text(X[self.idx_equator2], Y[self.idx_equator2]-txtshift, "EQ2",
                    color='deepskyblue', horizontalalignment='right')
         else:
@@ -1161,19 +1191,22 @@ class abpolarpass_poes(object):
             titlstr = titlstr[:-1]+'\n' # Remove trailing comma, add newline
 
         #a.legend(ncol=2, fontsize="medium")
-        a2.legend(loc=0, fontsize="medium")
+        a2.legend(loc=0, fontsize="medium",framealpha=0)
 
         if self.failure_reason is not None:
             a.text(-40,-60,self.failure_reason,color='red')
         else:
-            breakpoint()
+
             desc = "Boundary 1: %.3f-%.3f, A: %.1e, RelUncertA: %.1f, A/A_max: %.3f, twidth: %.3fs\n" % (self['mlat'][self.idx_equator1], self['mlat'][self.idx_pole1], self.segment1.area,self.segment1.area_uncert,self.segment1.area/self.max_seg_area, self.segment1.twidth)
             desc += "Boundary 2: %.3f-%.3f,A: %.1e, RelUncertA: %.1f, A/A_max: %.3f, twidth: %.3fs\n" % (self['mlat'][self.idx_equator2],self['mlat'][self.idx_pole2], self.segment2.area,self.segment2.area_uncert,self.segment2.area/self.max_seg_area, self.segment2.twidth)
             desc += "Polar Cap Width in Time %.1f sec" % (self.segment2['uts'][0]-self.segment1['uts'][-1])
+            # desc = ''
+            desc = desc.replace("_","\_")
             a.text(-60.,-60.,desc,color='blue', fontsize="x-small")
 
+
         if self.max_fom is not None:
-            titlstr += 'Identification FOM ( < 1.8 is questionable ): %.2f' % (self.max_fom)
+            titlstr += 'Identification FOM ( $<$ 1.8 is questionable ): %.2f' % (self.max_fom)
 
         f.suptitle(titlstr, fontsize="medium")
 
